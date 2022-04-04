@@ -1,4 +1,5 @@
-//! Simple logger to just change color
+//! Simple logger
+//! Just change the colors of logs
 //!
 //! # Example
 //! ```
