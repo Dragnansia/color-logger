@@ -6,7 +6,7 @@
 //! # Example
 //! ```
 //! fn main() -> Result<(), log::SetLoggerError> {
-//!     color_logger::init()?;
+//!     color_logger::init(None)?;
 //!     log::info!("Info");
 //!
 //!     Ok(())
@@ -20,6 +20,7 @@ use log::*;
 
 struct ColorLogger {
     color: [(log::Level, Color); 5],
+    level: Level,
 }
 
 impl ColorLogger {
@@ -32,6 +33,7 @@ impl ColorLogger {
                 (Level::Debug, Color::Default),
                 (Level::Trace, Color::Default),
             ],
+            level: Level::Info,
         }
     }
 
@@ -75,9 +77,15 @@ impl Log for ColorLogger {
 static mut LOGGER: ColorLogger = ColorLogger::new();
 
 /// Initialise ColorLogger
-pub fn init() -> Result<(), SetLoggerError> {
+///
+/// The default value of level is `Level::Info`
+pub fn init(level: Option<Level>) -> Result<(), SetLoggerError> {
     unsafe {
         set_logger(&LOGGER)?;
+
+        if let Some(level) = level {
+            set_level(level);
+        }
     }
 
     set_max_level(LevelFilter::Info);
@@ -93,7 +101,7 @@ pub fn init() -> Result<(), SetLoggerError> {
 /// use color_logger::{*, color::Color};
 ///
 /// fn main() -> Result<(), SetLoggerError> {
-///     init()?;
+///     init(None)?;
 ///     set_level_color(Level::Info, Color::rgb([255, 255, 255]));
 ///     
 ///     Ok(())
@@ -105,9 +113,17 @@ pub fn set_level_color(level: Level, color: Color) {
     }
 }
 
+pub fn set_level(level: Level) {
+    unsafe { LOGGER.level = level };
+}
+
 /// Return the current color for the Level
 pub fn get_level_color(level: Level) -> Color {
     unsafe { LOGGER.find_color(level) }
+}
+
+pub fn get_level() -> Level {
+    unsafe { LOGGER.level }
 }
 
 #[cfg(test)]
@@ -115,18 +131,8 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_display() {
-        init().unwrap_or_default();
-
-        info!("Info");
-        error!("Error");
-        warn!("Warn");
-        trace!("Trace");
-    }
-
-    #[test]
     fn change_color() {
-        init().unwrap_or_default();
+        init(None).unwrap_or_default();
 
         let color = Color::rgb([255, 0, 255]);
         set_level_color(Level::Info, color);
@@ -135,5 +141,13 @@ mod test {
         assert_eq!(color, info_color);
 
         set_level_color(Level::Info, Color::Default);
+    }
+
+    #[test]
+    fn change_level() {
+        init(None).unwrap_or_default();
+
+        set_level(Level::Debug);
+        assert_eq!(Level::Debug, get_level());
     }
 }
