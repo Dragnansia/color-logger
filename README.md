@@ -2,5 +2,5 @@
 Simple logger just to change the colors of logs
 
 ### Todo
-- [ ] Custom Color
+- [x] Custom Color
 - [ ] Add set log Level
