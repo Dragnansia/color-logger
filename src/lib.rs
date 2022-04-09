@@ -5,8 +5,10 @@
 //!
 //! # Example
 //! ```
+//! use color_logger::ColorLogger;
+//!
 //! fn main() -> Result<(), log::SetLoggerError> {
-//!     color_logger::init(None)?;
+//!     ColorLogger::new();
 //!     log::info!("Info");
 //!
 //!     Ok(())
@@ -18,14 +20,19 @@ pub mod color;
 use color::Color;
 use log::*;
 
-struct ColorLogger {
+static ONCE: std::sync::Once = std::sync::Once::new();
+
+pub struct ColorLogger {
     color: [(log::Level, Color); 5],
-    level: Level,
+    pub level: Level,
 }
 
 impl ColorLogger {
-    pub const fn new() -> Self {
-        Self {
+    /// Initialise ColorLogger
+    ///
+    /// The default value of level is `Level::Info`
+    pub fn new() -> &'static mut ColorLogger {
+        static mut LOGGER: ColorLogger = ColorLogger {
             color: [
                 (Level::Error, Color::rgb([255, 0, 0])),
                 (Level::Warn, Color::rgb([255, 255, 0])),
@@ -34,17 +41,44 @@ impl ColorLogger {
                 (Level::Trace, Color::Default),
             ],
             level: Level::Info,
-        }
+        };
+
+        ONCE.call_once(|| unsafe {
+            set_logger(&LOGGER).unwrap();
+        });
+
+        set_max_level(LevelFilter::Info);
+
+        unsafe { &mut LOGGER }
     }
 
-    pub fn change_color(&mut self, level: Level, color: Color) {
+    /// Change color logger for a specifique Level
+    ///
+    /// # Example
+    /// ```
+    /// use log::*;
+    /// use color_logger::{*, color::Color};
+    ///
+    /// fn main() -> Result<(), SetLoggerError> {
+    ///     ColorLogger::new().change_color(
+    ///        Level::Info,
+    ///        Color::rgb([255, 255, 255])
+    ///     );
+    ///     
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn change_color(&'static mut self, level: Level, color: Color) -> &'static mut ColorLogger {
         for i in 0..5 {
             if self.color[i].0 == level {
                 self.color[i].1 = color;
             }
         }
+
+        self
     }
 
+    /// Return color for specific Level
     pub fn find_color(&self, level: Level) -> Color {
         for (lvl, cl) in self.color {
             if lvl == level {
@@ -53,6 +87,23 @@ impl ColorLogger {
         }
 
         Color::Default
+    }
+
+    /// Change level for logger message
+    ///
+    /// # Example
+    /// ```
+    /// use log::*;
+    /// use color_logger::{*, color::Color};
+    ///
+    /// fn main() -> Result<(), SetLoggerError> {
+    ///    ColorLogger::new().set_level(Level::Error);
+    ///    Ok(())
+    /// }
+    /// ```
+    pub fn set_level(&'static mut self, level: Level) -> &'static mut ColorLogger {
+        self.level = level;
+        self
     }
 }
 
@@ -74,80 +125,25 @@ impl Log for ColorLogger {
     fn flush(&self) {}
 }
 
-static mut LOGGER: ColorLogger = ColorLogger::new();
-
-/// Initialise ColorLogger
-///
-/// The default value of level is `Level::Info`
-pub fn init(level: Option<Level>) -> Result<(), SetLoggerError> {
-    unsafe {
-        set_logger(&LOGGER)?;
-
-        if let Some(level) = level {
-            set_level(level);
-        }
-    }
-
-    set_max_level(LevelFilter::Info);
-
-    Ok(())
-}
-
-/// Change color logger for a specifique Level
-///
-/// # Example
-/// ```
-/// use log::*;
-/// use color_logger::{*, color::Color};
-///
-/// fn main() -> Result<(), SetLoggerError> {
-///     init(None)?;
-///     set_level_color(Level::Info, Color::rgb([255, 255, 255]));
-///     
-///     Ok(())
-/// }
-/// ```
-pub fn set_level_color(level: Level, color: Color) {
-    unsafe {
-        LOGGER.change_color(level, color);
-    }
-}
-
-pub fn set_level(level: Level) {
-    unsafe { LOGGER.level = level };
-}
-
-/// Return the current color for the Level
-pub fn get_level_color(level: Level) -> Color {
-    unsafe { LOGGER.find_color(level) }
-}
-
-pub fn get_level() -> Level {
-    unsafe { LOGGER.level }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
     fn change_color() {
-        init(None).unwrap_or_default();
-
         let color = Color::rgb([255, 0, 255]);
-        set_level_color(Level::Info, color);
+        let logger = ColorLogger::new().change_color(Level::Info, color);
 
-        let info_color = get_level_color(Level::Info);
+        let info_color = logger.find_color(Level::Info);
         assert_eq!(color, info_color);
 
-        set_level_color(Level::Info, Color::Default);
+        logger.change_color(Level::Info, Color::Default);
     }
 
     #[test]
     fn change_level() {
-        init(None).unwrap_or_default();
+        let logger = ColorLogger::new().set_level(Level::Debug);
 
-        set_level(Level::Debug);
-        assert_eq!(Level::Debug, get_level());
+        assert_eq!(Level::Debug, logger.level);
     }
 }
