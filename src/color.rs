@@ -21,6 +21,22 @@ impl Color {
         }
     }
 
+    pub const fn black() -> Self {
+        Self::Rgb { r: 0, g: 0, b: 0 }
+    }
+
+    pub const fn red() -> Self {
+        Self::Rgb { r: 255, g: 0, b: 0 }
+    }
+
+    pub const fn green() -> Self {
+        Self::Rgb { r: 0, g: 255, b: 0 }
+    }
+
+    pub const fn blue() -> Self {
+        Self::Rgb { r: 0, g: 0, b: 255 }
+    }
+
     pub fn terminal_format(&self) -> String {
         match self {
             Color::Rgb { r, g, b } => format!("\x1b[38;2;{};{};{}m", r, g, b),

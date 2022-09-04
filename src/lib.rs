@@ -69,24 +69,23 @@ impl ColorLogger {
     /// }
     /// ```
     pub fn change_color(&'static mut self, level: Level, color: Color) -> &'static mut ColorLogger {
-        for i in 0..5 {
-            if self.color[i].0 == level {
-                self.color[i].1 = color;
-            }
-        }
+        self.color
+            .iter_mut()
+            .filter(|c| c.0 == level)
+            .for_each(|c| c.1 = color);
 
         self
     }
 
     /// Return color for specific Level
     pub fn find_color(&self, level: Level) -> Color {
-        for (lvl, cl) in self.color {
-            if lvl == level {
-                return cl;
-            }
-        }
-
-        Color::Default
+        self.color
+            .iter()
+            .find_map(|c| match c.0 == level {
+                true => Some(c.1),
+                false => None,
+            })
+            .unwrap_or(Color::Default)
     }
 
     /// Change level for logger message
